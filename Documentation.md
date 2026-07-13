@@ -7,3 +7,4 @@
 
 ## Syntax
 the `.` (Concatenation Operator) works similar to how + works in python
+
