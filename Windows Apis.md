@@ -9,3 +9,6 @@
 | 1     | ABE_TOP      | Top    |
 | 2     | ABE_RIGHT    | Right  |
 | 3     | ABE_BOTTOM   | Bottom |
+
+# does it finally work? is wakatime working?
+why not detecto? vcf
