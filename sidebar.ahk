@@ -14,6 +14,18 @@ cfgTop := IniRead("config.ini", "Design",  "TopOffset", 0)
 global pathBase       := IniRead("config.ini", "Paths", "UserDirBase", "")
 global pathEverything := IniRead("config.ini", "Paths", "EverythingExe", "")
 global pathTerminal   := IniRead("config.ini", "Paths", "TerminalExe", "")
+global showHA         := IniRead("config.ini", "features", "ShowHomeAssistant", 1)
+
+global HAToken := ""
+try {
+    envData := FileRead(A_ScriptDir "\.env")
+    if RegExMatch(envData, "m)^HA_TOKEN=(.*)", &m)
+        HAToken := Trim(m[1], "`r`n ")
+}
+; sepearation
+global showHA := IniRead("config.ini", "Features", "ShowHomeAssistant", 0)
+
+
 
 ; Dynamically construct the folder targets
 global targetDownloads := pathBase . "Downloads"
@@ -56,7 +68,10 @@ BottomPad := 10
 
 GroupH := RowH + (ValH - 3) + ValH
 MicroSepH := 12
-StatsContentH := (GroupH + Gap) * 4 - Gap + MicroSepH + (GroupH + Gap) * 3 - Gap
+StatsContentH := (GroupH + Gap) * 4 - Gap
+if (showHA) {
+    StatsContentH += MicroSepH + (GroupH + Gap) * 3 - Gap
+}
 ContainerPadTop := 12
 ContainerPadBot := BottomPad
 global StatsBlockHeight := StatsContentH + ContainerPadTop + ContainerPadBot
@@ -153,29 +168,32 @@ global txtNetU := myBar.Add("Text", "x" . ContentX . " w" . (cfgWidth - ContentX
 y += ValH
 
 y += 4
-y += MicroSepH - 4 + Gap
 
-; ── INV ──────────────────────────────────────────────────────────────────────
-AddLabel("INV", AccentSolid, &y)
-global txtLoadPower  := myBar.Add("Text", "x" . ContentX . " w" . (cfgWidth - ContentX - 2) . " h" . ValH . " BackgroundTrans y" . y, "--kW")
-y += ValH - 3
-myBar.SetFont("s8 c" . StatDimColor, "Consolas")
-global txtBatteryPct := myBar.Add("Text", "x" . ContentX . " w" . (cfgWidth - ContentX - 2) . " h" . ValH . " BackgroundTrans y" . y, "--%")
-y += ValH + Gap
+if (showHA) {
+    y += MicroSepH - 4 + Gap
 
-; ── PV1 ──────────────────────────────────────────────────────────────────────
-AddLabel("PV1", AccentSolid, &y)
-global txtPv1W := myBar.Add("Text", "x" . ContentX . " w" . (cfgWidth - ContentX - 2) . " h" . ValH . " BackgroundTrans y" . y, "--kW")
-y += ValH - 3
-myBar.Add("Text", "x" . ContentX . " w" . (cfgWidth - ContentX - 2) . " h" . ValH . " BackgroundTrans y" . y, "")
-y += ValH + Gap
+    ; ── INV ──────────────────────────────────────────────────────────────────────
+    AddLabel("INV", AccentSolid, &y)
+    global txtLoadPower  := myBar.Add("Text", "x" . ContentX . " w" . (cfgWidth - ContentX - 2) . " h" . ValH . " BackgroundTrans y" . y, "--kW")
+    y += ValH - 3
+    myBar.SetFont("s8 c" . StatDimColor, "Consolas")
+    global txtBatteryPct := myBar.Add("Text", "x" . ContentX . " w" . (cfgWidth - ContentX - 2) . " h" . ValH . " BackgroundTrans y" . y, "--%")
+    y += ValH + Gap
 
-; ── GRD ──────────────────────────────────────────────────────────────────────
-AddLabel("GRD", AccentSolid, &y)
-global txtGridW := myBar.Add("Text", "x" . ContentX . " w" . (cfgWidth - ContentX - 2) . " h" . ValH . " BackgroundTrans y" . y, "--kW")
-y += ValH - 3
-myBar.SetFont("s8 c" . StatDimColor, "Consolas")
-global txtBatteryW := myBar.Add("Text", "x" . ContentX . " w" . (cfgWidth - ContentX - 2) . " h" . ValH . " BackgroundTrans y" . y, "--kW")
+    ; ── PV1 ──────────────────────────────────────────────────────────────────────
+    AddLabel("PV1", AccentSolid, &y)
+    global txtPv1W := myBar.Add("Text", "x" . ContentX . " w" . (cfgWidth - ContentX - 2) . " h" . ValH . " BackgroundTrans y" . y, "--kW")
+    y += ValH - 3
+    myBar.Add("Text", "x" . ContentX . " w" . (cfgWidth - ContentX - 2) . " h" . ValH . " BackgroundTrans y" . y, "")
+    y += ValH + Gap
+
+    ; ── GRD ──────────────────────────────────────────────────────────────────────
+    AddLabel("GRD", AccentSolid, &y)
+    global txtGridW := myBar.Add("Text", "x" . ContentX . " w" . (cfgWidth - ContentX - 2) . " h" . ValH . " BackgroundTrans y" . y, "--kW")
+    y += ValH - 3
+    myBar.SetFont("s8 c" . StatDimColor, "Consolas")
+    global txtBatteryW := myBar.Add("Text", "x" . ContentX . " w" . (cfgWidth - ContentX - 2) . " h" . ValH . " BackgroundTrans y" . y, "--kW")
+}
 
 myBar.BackColor := cfgColor
 myBar.Show("x" . posX . " y" . cfgTop . " w" . cfgWidth . " h" . BarHeight . " NoActivate")
@@ -282,11 +300,9 @@ DrawStatsContainers() {
     pad := 4
     bmpH := StatsBlockHeight
 
+    global showHA
     pcY := ContainerPadTop - 6
     pcH := (GroupH + Gap) * 4 - Gap + 6
-
-    solarY := pcY + pcH + MicroSepH
-    solarH := bmpH - solarY - 4
 
     pBitmap := Gdip_CreateBitmap(cfgWidth, bmpH)
     G := Gdip_GraphicsFromImage(pBitmap)
@@ -325,17 +341,21 @@ DrawStatsContainers() {
     Gdip_FillRectangle(G, pCardBrush1,  cardX,   cardY,   cardW, cardH)
     Gdip_DrawRectangle(G, pBorderPen,   cardX,   cardY,   cardW, cardH)
 
-    ; =========================================
-    ; 2. PRE-CALCULATE VARIABLES FOR SOLAR CARD
-    ; =========================================
-    cardY := solarY
-    cardH := solarH - sy
-    shadowY := cardY + sy
+    if (showHA) {
+        solarY := pcY + pcH + MicroSepH
+        solarH := bmpH - solarY - 4
+        ; =========================================
+        ; 2. PRE-CALCULATE VARIABLES FOR SOLAR CARD
+        ; =========================================
+        cardY := solarY
+        cardH := solarH - sy
+        shadowY := cardY + sy
 
-    ; Draw Solar Stats Card (Shadow -> Card -> Border)
-    Gdip_FillRectangle(G, pShadowBrush, shadowX, shadowY, cardW, cardH)
-    Gdip_FillRectangle(G, pCardBrush2,  cardX,   cardY,   cardW, cardH)
-    Gdip_DrawRectangle(G, pBorderPen,   cardX,   cardY,   cardW, cardH)
+        ; Draw Solar Stats Card (Shadow -> Card -> Border)
+        Gdip_FillRectangle(G, pShadowBrush, shadowX, shadowY, cardW, cardH)
+        Gdip_FillRectangle(G, pCardBrush2,  cardX,   cardY,   cardW, cardH)
+        Gdip_DrawRectangle(G, pBorderPen,   cardX,   cardY,   cardW, cardH)
+    }
 
     ; Cleanup
     hBitmap := Gdip_CreateHBITMAPFromBitmap(pBitmap, 0xFF141414)
@@ -415,6 +435,57 @@ DrawStatsContainers() {
             ; Fail silently if LibreHardwareMonitor is not running
 
         } 
+}
+
+if (showHA) {
+    SetTimer(UpdateHomeAssistantStats, 5000)
+    UpdateHomeAssistantStats()
+}
+
+UpdateHomeAssistantStats() {
+    global txtLoadPower, txtBatteryPct, txtPv1W, txtGridW, txtBatteryW, HAToken
+
+    haUrlPower := "http://192.168.1.15:8123/api/states/sensor.inverter_load_power"
+    haUrlTemp  := "http://192.168.1.15:8123/api/states/sensor.inverter_battery"
+    haUrlPv1   := "http://192.168.1.15:8123/api/states/sensor.inverter_pv1_power"
+    haUrlGrid  := "http://192.168.1.15:8123/api/states/sensor.inverter_grid_l1_power"
+    haTokenLocal := HAToken
+    if (haTokenLocal = "")
+        return
+    try {
+        req := ComObject("WinHttp.WinHttpRequest.5.1")
+        req.SetTimeouts(500, 500, 500, 500)
+
+        req.Open("GET", haUrlPower, false)
+        req.SetRequestHeader("Authorization", "Bearer " haTokenLocal)
+        req.Send()
+        if (req.Status == 200) {
+            if RegExMatch(req.ResponseText, '"state":\s*"([^"]+)"', &m)
+                txtLoadPower.Value := IsNumber(m[1]) ? Round(m[1] / 1000, 2) "kW" : "--kW"
+        }
+        req.Open("GET", haUrlTemp, false)
+        req.SetRequestHeader("Authorization", "Bearer " haTokenLocal)
+        req.Send()
+        if (req.Status == 200) {
+            if RegExMatch(req.ResponseText, '"state":\s*"([^"]+)"', &m)
+                txtBatteryPct.Value := IsNumber(m[1]) ? Round(m[1]) "%" : "--%"
+        }
+        req.Open("GET", haUrlPv1, false)
+        req.SetRequestHeader("Authorization", "Bearer " haTokenLocal)
+        req.Send()
+        if (req.Status == 200) {
+            if RegExMatch(req.ResponseText, '"state":\s*"([^"]+)"', &m)
+                txtPv1W.Value := IsNumber(m[1]) ? Round(m[1] / 1000, 2) "kW" : "--kW"
+        }
+        req.Open("GET", haUrlGrid, false)
+        req.SetRequestHeader("Authorization", "Bearer " haTokenLocal)
+        req.Send()
+        if (req.Status == 200) {
+            if RegExMatch(req.ResponseText, '"state":\s*"([^"]+)"', &m)
+                txtGridW.Value := IsNumber(m[1]) ? Round(m[1], 2) "kW" : "--kW"
+        }
+    } catch {
+    }
 }
 
 ; --- QUICK ACTIONS LOGIC ---
