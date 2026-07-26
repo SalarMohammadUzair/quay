@@ -297,3 +297,71 @@ DrawStatsContainers() {
 
     return hBitmap
 }
+    ; appearnace work done, now we poll for syst4em stats
+
+    ; data polling timers
+    SetTimer(UpdateHardwareStats, 2000)
+    UpdateHardwareStats()
+
+    ; data fetching functions
+    UpdateHardwareStats() {
+        global txtCpuT, txtCpuW, txtGpuT, txtGpuW, txtRamU, txtCommU, txtNetD, txtNetU
+        try {
+            req := ComObject("WinHttp.WinHttpRequest.5.1")
+            req.SetTimeouts(500, 500, 500, 500)
+            req.Open("GET", "http://localhost:8085/data.json", false)
+            req.Send()
+            if (req.Status != 200)
+                return
+            json := req.ResponseText
+            if RegExMatch(json, '"Text":"CPU Package"[^}]+?"Value":"([0-9.]+)[^"]*u00B0C"', &m)
+                txtCpuT.Value := Round(m[1]) "°"
+            if RegExMatch(json, '"Text":"CPU Package"[^}]+?"Value":"([0-9.]+)[^"]*W"', &m)
+                txtCpuW.Value := Round(m[1]) "W"
+            if RegExMatch(json, '"Text":"GPU Core"[^}]+?"Value":"([0-9.]+)[^"]*u00B0C"', &m)
+                txtGpuT.Value := Round(m[1]) "°"
+            if RegExMatch(json, '"Text":"GPU Package"[^}]+?"Value":"([0-9.]+)[^"]*W"', &m)
+                txtGpuW.Value := Round(m[1]) "W"
+            if RegExMatch(json, 's)"Text":"Virtual Memory".*?"Text":"Memory Used"[^}]+?"Value":"([0-9.]+)[^"]*GB"', &m)
+                txtCommU.Value := Round(m[1], 1) "C"
+            if RegExMatch(json, 's)"Text":"Total Memory".*?"Text":"Memory Used"[^}]+?"Value":"([0-9.]+)[^"]*GB"', &m)
+                txtRamU.Value := Round(m[1], 1) "R"
+                
+            dlSum := 0.0
+            ulSum := 0.0
+            pos := 1
+            while (pos := RegExMatch(json, '"Text":"Download Speed"[^}]+?"Value":"([0-9.]+)\s*([KMG]?B/s)"', &m, pos)) {
+                val := Float(m[1])
+                unit := m[2]
+                if (unit == "MB/s")
+                    val *= 1024
+                else if (unit == "GB/s")
+                    val *= 1048576
+                else if (unit == "B/s")
+                    val /= 1024
+                dlSum += val
+                pos += m.Len[0]
+            }
+            pos := 1
+            while (pos := RegExMatch(json, '"Text":"Upload Speed"[^}]+?"Value":"([0-9.]+)\s*([KMG]?B/s)"', &m, pos)) {
+                val := Float(m[1])
+                unit := m[2]
+                if (unit == "MB/s")
+                    val *= 1024
+                else if (unit == "GB/s")
+                    val *= 1048576
+                else if (unit == "B/s")
+                    val /= 1024
+                ulSum += val
+                pos += m.Len[0]
+            }
+            dlKbps := dlSum * 8
+            ulKbps := ulSum * 8
+
+            txtNetD.Value := (dlKbps >= 1000) ? Format("{:.1f}", dlKbps / 1000) "M↓" : Format("{:.1f}", dlKbps) "K↓"
+            txtNetU.Value := (ulKbps >= 1000) ? Format("{:.1f}", ulKbps / 1000) "M↑" : Format("{:.1f}", ulKbps) "K↑"
+        } catch {
+            ; Fail silently if LibreHardwareMonitor is not running
+
+        } 
+}
