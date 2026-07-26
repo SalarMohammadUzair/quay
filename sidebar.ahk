@@ -21,6 +21,20 @@ global targetDocuments := pathBase . "Documents"
 global targetCode      := pathBase . "Documents\(02)Mycodeworks"
 global targetShots     := pathBase . "Pictures\Screenshots"
 
+; sepearation
+global WindowSlotHeight := 44
+global WindowIconSize := 22
+global WindowIconMargin := 5
+global ActiveIndicatorWidth := 3
+global ActiveIndicatorHeight := 22
+global ActiveIndicatorX := 2
+global ActiveIndicatorColor := "000000"
+global WindowAreaY := 0
+global WindowButtons := []
+global WindowListSig := ""
+global WindowOrder := []
+global DefaultAppIconPath := A_WinDir "\System32\shell32.dll"
+
 
 
 
@@ -68,7 +82,12 @@ btnCode     .OnEvent("Click",  (*) => OpenFolderInExplorer(targetCode))
 btnShots    .OnEvent("Click",  (*) => OpenFolderInExplorer(targetShots))
 btnTerminal .OnEvent("Click",  OpenTerminalInCurrentDir)
 btnEverything.OnEvent("Click", OpenEverythingInCurrentDir)
+btnEverything.GetPos(, &lastPinnedY, , &lastPinnedH)
+seperatorY := lastPinnedY + lastPinnedH + 8
+myBar.Add("Progress", "x4 y" . seperatorY . " w" . (cfgWidth - 8) . " h2 c000000 Background000000 -Smooth", 100)
+WindowAreaY := seperatorY + 10
 
+SetTimer(RefreshOpenWIndowButtons, 250)
 
 
 
@@ -478,4 +497,195 @@ Explorer_Navigate_Tab(path, hwnd) {
         }
     }
     Run('"' path '"')
+}
+
+IsTaskbarWindow(hwnd) {
+    global myBar
+    if (hwnd = myBar.Hwnd)
+        return false
+    if !DllCall("IsWindowVisible", "Ptr", hwnd)
+        return false
+    title := WinGetTitle("ahk_id " hwnd)
+    if (title = "")
+        return false
+    exStyle := DllCall("GetWindowLongPtr", "Ptr", hwnd, "Int", -20, "Ptr")
+    style   := DllCall("GetWindowLongPtr", "Ptr", hwnd, "Int", -16, "Ptr")
+    if (exStyle & 0x80)
+        return false
+    if (style & 0x40000000)
+        return false
+    owner := DllCall("GetWindow", "Ptr", hwnd, "UInt", 4, "Ptr")
+    if (owner && !(exStyle & 0x40000))
+        return false
+    ; virtual desktop chwecker
+    cloaked := 0
+    if !DllCall("dwmapi\DwmGetWindowAttribute", "Ptr", hwnd, "UInt", 14, "UIntP", cloaked, "UInt", 4)
+        if cloaked 
+            return false
+    className := WinGetClass("ahk_id " hwnd)
+    if (className = "Shell_TrayWnd" || className = "Progman" || className = "WorkerW")
+        return false
+    return true
+}
+
+
+RefreshOpenWIndowButtons(*) {
+    global WindowAreaY, WindowSlotHeight, WindowButtons, WindowListSig
+    global cfgWidth, BarHeight, WindowOrder, containerY
+    ; commment we will add later
+    maxVisible := Floor((containerY - WindowAreaY) / WindowSlotHeight)
+    if (maxVisible < 0)
+        maxVisible := 0
+    activeHwnd := WinActive("A")
+    currentWindows := Map()
+    for hwnd in WinGetList() {
+        if IsTaskbarWindow(hwnd) 
+            currentWindows[hwnd] := true
+    }
+    hwnds := []
+    nextOrder := []
+    for hwnd in WindowOrder {
+        if currentWindows.Has(hwnd) {
+            hwnds.Push(hwnd)
+            nextOrder.Push(hwnd)
+            currentWindows.Delete(hwnd)
+        }
+    }
+    for hwnd, _ in currentWindows {
+        hwnds.Push(hwnd)
+        nextOrder.Push(hwnd)
+    }
+    WindowOrder := nextOrder
+
+    if (hwnds.Length > maxVisible) 
+        hwnds.Length := maxVisible
+
+    sig := activeHwnd "|"
+    for hwnd in hwnds
+        sig .= hwnd "|"
+    if (sig = WindowListSig)
+        return
+    y := WindowAreaY
+    for index, hwnd in hwnds {
+        if ( index > WindowButtons.Length)
+            WindowButtons.Push(AddOpenWindowButton(index, y))
+        button := WindowButtons[index]
+        button.hwnd := hwnd
+        UpdateOpenWindowButton(button, hwnd, y, hwnd = activeHwnd)
+        y += WindowSlotHeight
+    }
+    loop WindowButtons.Length {
+        if (A_index > hwnds.Length) {
+            WindowButtons[A_Index].hwnd := 0
+            WindowButtons[A_Index].ctrl.Visible := false
+            WindowButtons[A_Index].indicator.Visible := false
+        }
+    }
+    WindowListSig := sig
+}
+
+; seperatorrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+AddOpenWindowButton(index, y) {
+    global myBar, cfgWidth, WindowIconSize, WindowIconMargin
+    global ActiveIndicatorWidth, ActiveIndicatorHeight, ActiveIndicatorColor, ActiveIndicatorX
+
+    ctrlX := Floor((cfgWidth - WindowIconSize) / 2)
+    ctrlY := y + WindowIconMargin
+    indicator := myBar.Add("Progress", "x" . ActiveIndicatorX . " y" . ctrlY . " w" . ActiveIndicatorWidth . " h" . ActiveIndicatorHeight . " c" . ActiveIndicatorColor . " Background141414 -Smooth", 100)
+    indicator.Visible := false
+    ctrl := myBar.Add("Picture", "x" . ctrlX . " y" . ctrlY . " w" . WindowIconSize . " h" . WindowIconSize . " BackgroundTrans +0x0200 Icon1", DefaultAppIconPath)
+    ctrl.OnEvent("Click", ActivateOpenWindowSlot.Bind(index))
+    return {ctrl: ctrl, indicator: indicator, hwnd: 0}
+}
+; seperatorrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+UpdateOpenWindowButton(button, hwnd, y, isActive) {
+    global myBar, cfgWidth, WindowIconSize, WindowIconMargin
+    global ActiveIndicatorWidth, ActiveIndicatorHeight, ActiveIndicatorX
+
+    ctrl := button.ctrl
+    indicator := button.indicator
+    ctrlX := Floor((cfgWidth - WindowIconSize) / 2)
+    ctrlY := y + WindowIconMargin
+
+    indicator.Move(ActiveIndicatorX, ctrlY, ActiveIndicatorWidth, ActiveIndicatorHeight)
+    indicator.Visible := isActive
+    ctrl.Move(ctrlX, ctrlY, WindowIconSize, WindowIconSize)
+    ctrl.Visible := true
+    try {
+        ctrl.Value := ResolveWindowPictureSource(hwnd)
+    } catch {
+        global DefaultAppIconPath
+        try ctrl.Value := DefaultAppIconPath
+    }
+
+}
+; seperatorrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+ActivateOpenWindowSlot(index, ctrl, *) {
+    global WindowButtons
+    if (index > WindowButtons.Length)
+        return
+    hwnd := WindowButtons[index].hwnd
+    if !hwnd
+        return
+    windowSpec := "ahk_id " hwnd
+    if WinActive(windowSpec) {
+        WinMinimize(windowSpec)
+        return
+    }
+    try {
+        if (WinGetMinMax(windowSpec) = -1)
+            WinRestore(windowSpec)
+    }
+    WinActivate(windowSpec)
+}
+; seperatorrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+
+ResolveWindowPictureSource(hwnd) {
+    global DefaultAppIconPath
+    try procPath := WinGetProcessPath("ahk_id " hwnd)
+    catch
+        procPath := ""
+    if (procPath != "" && FileExist(procPath))
+        return procPath
+    ; fallback
+    aumid := GetWindowAumid(hwnd)
+    if (aumid != "" && InStr(StrLower(aumid), "windows.immersivecontrolpanel"))
+        return "C:\Windows\ImmersiveControlPanel\images\logo.contrast-white_scale-200.png"
+    return DefaultAppIconPath
+}
+; seperatorrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+
+GetWindowAumid(hwnd) {
+    static IID_IPropertyStore     := "{886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99}"
+    static PKEY_AppUserModel_ID   := "{9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3}"
+    static VT_LPWSTR := 31
+
+    DllCall("ole32\CoInitialize", "Ptr", 0)
+    
+    iid := Buffer(16, 0)
+    DllCall("ole32\CLSIDFromString", "WStr", IID_IPropertyStore, "Ptr", iid.Ptr)
+    pkeyGuid := Buffer(16, 0)
+    DllCall("ole32\CLSIDFromString", "WStr", PKEY_AppUserModel_ID, "Ptr", pkeyGuid.Ptr)
+    
+    propertyKey := Buffer(20, 0)
+    DllCall("RtlMoveMemory", "Ptr", propertyKey.Ptr, "Ptr", pkeyGuid.Ptr, "UPtr", 16)
+    NumPut("UInt", 5, propertyKey, 16)
+
+    store := 0
+    if DllCall("shell32\SHGetPropertyStoreForWindow", "Ptr", hwnd, "Ptr", iid.Ptr, "Ptr*", store, "Int")
+        return ""
+    if !store
+        return ""
+
+    pv := Buffer(24, 0)
+    hr := ComCall(5, store, "Ptr", propertyKey.Ptr, "Ptr", pv.Ptr, "Int")
+    value := ""
+    if (!hr && NumGet(pv, 0, "UShort") = VT_LPWSTR) {
+        pwsz := NumGet(pv, 8, "Ptr")
+        if pwsz
+            value := StrGet(pwsz)
+    }
+    DllCall("ole32\PropVariantClear", "Ptr", pv.Ptr)
+    ObjRelease(store)
+    return value
 }
