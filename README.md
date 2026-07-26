@@ -1,5 +1,5 @@
 # quay
-![Quay Sidebar Preview](sample.png)
+<img src="sample.png" align="right" height="600" alt="Quay Sidebar Preview" />
 pronounced "key". A quay is a dock where things depart from, a place to put whatever you want
 
 
