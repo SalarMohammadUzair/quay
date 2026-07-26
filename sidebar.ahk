@@ -10,6 +10,19 @@ cfgPosition := IniRead("config.ini", "Design", "Position", "Left") ; if we find 
 cfgWidth := IniRead("config.ini", "Design",  "Width", 48) ; if we find nothing in config.ini to define it, use 48 as fallback
 cfgColor := IniRead("config.ini", "Design", "BackgroundColor", "141414" )
 cfgTop := IniRead("config.ini", "Design",  "TopOffset", 0)
+; Read paths from config (No hardcoded C:\ fallbacks!)
+global pathBase       := IniRead("config.ini", "Paths", "UserDirBase", "")
+global pathEverything := IniRead("config.ini", "Paths", "EverythingExe", "")
+global pathTerminal   := IniRead("config.ini", "Paths", "TerminalExe", "")
+
+; Dynamically construct the folder targets
+global targetDownloads := pathBase . "Downloads"
+global targetDocuments := pathBase . "Documents"
+global targetCode      := pathBase . "Documents\(02)Mycodeworks"
+global targetShots     := pathBase . "Pictures\Screenshots"
+
+
+
 
 ; calculate the total height of the bar based on the top offset
 BarHeight := A_ScreenHeight - cfgTop
@@ -40,6 +53,25 @@ statStartY := containerY + ContainerPadTop
 ; Create and show the window
 
 myBar := Gui("+AlwaysOnTop -Caption +ToolWindow", "MySidebar")
+myBar.SetFont("s14 cWhite", "Segoe Fluent Icons")
+myBar.Add("Text", "w" . cfgWidth . " h10 BackgroundTrans", "") ; Top padding
+btnDownloads  := myBar.Add("Text", "w" . cfgWidth . " h36 x0 Center BackgroundTrans", Chr(0xE896))
+btnDocuments  := myBar.Add("Text", "w" . cfgWidth . " h36 x0 Center BackgroundTrans", Chr(0xE8A5))
+btnCode       := myBar.Add("Text", "w" . cfgWidth . " h36 x0 Center BackgroundTrans", Chr(0xE8B7))
+btnShots      := myBar.Add("Text", "w" . cfgWidth . " h36 x0 Center BackgroundTrans", Chr(0xE8B9))
+btnTerminal   := myBar.Add("Text", "w" . cfgWidth . " h36 x0 Center BackgroundTrans", Chr(0xE756))
+btnEverything := myBar.Add("Text", "w" . cfgWidth . " h36 x0 Center BackgroundTrans", Chr(0xE721))
+
+btnDownloads.OnEvent("Click",  (*) => OpenFolderInExplorer(targetDownloads))
+btnDocuments.OnEvent("Click",  (*) => OpenFolderInExplorer(targetDocuments))
+btnCode     .OnEvent("Click",  (*) => OpenFolderInExplorer(targetCode))
+btnShots    .OnEvent("Click",  (*) => OpenFolderInExplorer(targetShots))
+btnTerminal .OnEvent("Click",  OpenTerminalInCurrentDir)
+btnEverything.OnEvent("Click", OpenEverythingInCurrentDir)
+
+
+
+
 
 hContainerBmp := DrawStatsContainers()
 global ctrlContainerBg := myBar.Add("Picture", "x0 y" . containerY . " w" . cfgWidth . " h" . StatsBlockHeight . " +0xE")
@@ -364,4 +396,86 @@ DrawStatsContainers() {
             ; Fail silently if LibreHardwareMonitor is not running
 
         } 
+}
+
+; --- QUICK ACTIONS LOGIC ---
+GetActiveExplorerPath(window) {
+    global pathBase
+    currentPath := window.Document.Folder.Self.Path
+    ; If the path doesn't have a drive letter (e.g. it just says "Documents")
+    if !InStr(currentPath, ":") {
+        currentPath := pathBase . currentPath
+    }
+    return currentPath
+}
+
+OpenEverythingInCurrentDir(*) {
+    global pathEverything
+    hwnd := WinActive("A")
+    for window in ComObject("Shell.Application").Windows {
+        if (window.hwnd == hwnd) {
+            currentPath := GetActiveExplorerPath(window)
+            Run('"' pathEverything '" -path "' currentPath '"')
+            return
+        }
+    }
+    Run('"' pathEverything '"')
+}
+
+OpenTerminalInCurrentDir(*) {
+    global pathTerminal
+    hwnd := WinActive("A")
+    for window in ComObject("Shell.Application").Windows {
+        if (window.hwnd == hwnd) {
+            currentPath := GetActiveExplorerPath(window)
+            Run('"' pathTerminal '" -d "' currentPath '"')
+            return
+        }
+    }
+    Run('"' pathTerminal '"')
+}
+
+OpenFolderInExplorer(path) {
+    hwnd := WinExist("ahk_class CabinetWClass")
+    if !hwnd {
+        Run('"' path '"')
+        return
+    }
+    WinActivate("ahk_id " hwnd)
+    WinWaitActive("ahk_id " hwnd, , 1)
+    Send("^t")
+    Sleep(150)
+    Explorer_Navigate_Tab(path, hwnd)
+}
+
+Explorer_Navigate_Tab(path, hwnd) {
+    try activeTab := ControlGetHwnd("ShellTabWindowClass1", "ahk_id " hwnd)
+    catch
+        activeTab := 0
+
+    for pExp in ComObject("Shell.Application").Windows {
+        if (pExp.hwnd == hwnd) {
+            if activeTab {
+                static IID_IShellBrowser := "{000214E2-0000-0000-C000-000000000046}"
+                try {
+                    shellBrowser := ComObjQuery(pExp, IID_IShellBrowser, IID_IShellBrowser)
+                    if shellBrowser {
+                        ptr := shellBrowser.Ptr
+                        vtbl := NumGet(ptr, "Ptr")
+                        funcPtr := NumGet(vtbl, 3 * A_PtrSize, "Ptr")
+                        DllCall(funcPtr, "Ptr", ptr, "Ptr*", &thisTab := 0)
+                        if (thisTab != activeTab)
+                            continue
+                    }
+                } catch {
+                    continue
+                }
+            }
+            try {
+                pExp.Navigate("file:///" path)
+                return
+            }
+        }
+    }
+    Run('"' path '"')
 }

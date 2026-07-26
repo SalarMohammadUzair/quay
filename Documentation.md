@@ -8,3 +8,5 @@
 ## Syntax
 the `.` (Concatenation Operator) works similar to how + works in python
 
+# librehardware monitor 
+it serves info on "http://localhost:8085/data.json" , we have to set it to run on startup and run in the background forever so that we can query it always. must install it.
