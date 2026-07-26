@@ -2,7 +2,7 @@
 #SingleInstance Force
 #Include "Gdip_All.ahk"
 global pToken := Gdip_Startup()
-Esc::ExitApp
+; Esc::ExitApp
 
 ; 1. READ THE CONFIG FILE
 ; IniRead(DefaultValue, Filename, Section, Key)
@@ -15,6 +15,7 @@ global pathBase       := IniRead("config.ini", "Paths", "UserDirBase", "")
 global pathEverything := IniRead("config.ini", "Paths", "EverythingExe", "")
 global pathTerminal   := IniRead("config.ini", "Paths", "TerminalExe", "")
 global showHA         := IniRead("config.ini", "features", "ShowHomeAssistant", 1)
+global haUrlBase      := IniRead("config.ini", "features", "HomeAssistantUrl", "http://192.168.1.15:8123")
 
 global HAToken := ""
 try {
@@ -443,12 +444,12 @@ if (showHA) {
 }
 
 UpdateHomeAssistantStats() {
-    global txtLoadPower, txtBatteryPct, txtPv1W, txtGridW, txtBatteryW, HAToken
+    global txtLoadPower, txtBatteryPct, txtPv1W, txtGridW, txtBatteryW, HAToken, haUrlBase
 
-    haUrlPower := "http://192.168.1.15:8123/api/states/sensor.inverter_load_power"
-    haUrlTemp  := "http://192.168.1.15:8123/api/states/sensor.inverter_battery"
-    haUrlPv1   := "http://192.168.1.15:8123/api/states/sensor.inverter_pv1_power"
-    haUrlGrid  := "http://192.168.1.15:8123/api/states/sensor.inverter_grid_l1_power"
+    haUrlPower := haUrlBase "/api/states/sensor.inverter_load_power"
+    haUrlTemp  := haUrlBase "/api/states/sensor.inverter_battery"
+    haUrlPv1   := haUrlBase "/api/states/sensor.inverter_pv1_power"
+    haUrlGrid  := haUrlBase "/api/states/sensor.inverter_grid_l1_power"
     haTokenLocal := HAToken
     if (haTokenLocal = "")
         return
