@@ -20,4 +20,9 @@ ___
 ### instructions on how to run
 Download the repo, download and install libre hardware monitor ( the bar itself would work just fine wihout it, it just won't show the system stats), install AutoHotkey v2, double click the sidebar.ahk to run it.
 You can tweak stuff from the config.ini, such as having it on the left or the right.
-[demo](Screenshot 2026-07-30 3654.mp4)
+___
+### demo
+<video controls width="640">
+  <source src="Screenshot%202026-07-30%203654.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video> 
