@@ -22,7 +22,4 @@ Download the repo, download and install libre hardware monitor ( the bar itself 
 You can tweak stuff from the config.ini, such as having it on the left or the right.
 ___
 ### demo
-<video controls width="640">
-  <source src="Screenshot%202026-07-30%203654.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video> 
+[Watch the demo video](Screenshot%202026-07-30%203654.mp4)
