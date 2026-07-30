@@ -22,4 +22,6 @@ Download the repo, download and install libre hardware monitor ( the bar itself 
 You can tweak stuff from the config.ini, such as having it on the left or the right.
 ___
 ### demo
-[Watch the demo video](https://github.com/SalarMohammadUzair/quay/blob/main/Screenshot%202026-07-30%203654.mp4)
+![Demo](demo.gif)
+
+[Watch the full demo video](demo.mp4)
